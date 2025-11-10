@@ -1,0 +1,173 @@
+name: Build Release APK & IPA
+
+on:
+  push:
+    branches:
+      - 'release-*.*.*'
+      - 'release-*'
+      - 'release/**'
+
+jobs:
+  build-android:
+    name: Build Android APK
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+          cache: 'gradle'
+          
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.24.3'
+          channel: 'stable'
+          cache: 'true'
+          
+      - name: Get Flutter dependencies
+        run: flutter pub get
+        
+      - name: Run Flutter analyzer
+        run: flutter analyze
+        continue-on-error: true
+        
+      - name: Build APK
+        run: flutter build apk --release --split-per-abi
+        
+      - name: Get version from branch or pubspec
+        id: version
+        run: |
+          # Extract version from branch name if it matches release-x.x.x pattern
+          BRANCH_NAME="${GITHUB_REF#refs/heads/}"
+          if [[ $BRANCH_NAME =~ ^release-([0-9]+\.[0-9]+\.[0-9]+)$ ]]; then
+            VERSION="${BASH_REMATCH[1]}"
+            echo "Version extracted from branch name: $VERSION"
+          else
+            # Fallback to pubspec.yaml
+            VERSION=$(grep "version:" pubspec.yaml | awk '{print $2}' | tr -d '\r')
+            echo "Version extracted from pubspec.yaml: $VERSION"
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "branch=$BRANCH_NAME" >> $GITHUB_OUTPUT
+          
+      - name: Upload APK artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: asset-it-apk-${{ steps.version.outputs.version }}
+          path: |
+            build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk
+            build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
+            build/app/outputs/flutter-apk/app-x86_64-release.apk
+          retention-days: 30
+          
+      - name: Create Release Summary
+        run: |
+          echo "## 🚀 Build Successful" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Version:** ${{ steps.version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Branch:** ${{ steps.version.outputs.branch }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📦 APK Files Generated:" >> $GITHUB_STEP_SUMMARY
+          echo "- app-armeabi-v7a-release.apk (ARM 32-bit)" >> $GITHUB_STEP_SUMMARY
+          echo "- app-arm64-v8a-release.apk (ARM 64-bit) ⭐ Recommended" >> $GITHUB_STEP_SUMMARY
+          echo "- app-x86_64-release.apk (Intel/AMD)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "💾 Download artifacts from the bottom of this page" >> $GITHUB_STEP_SUMMARY
+          
+      - name: Notify build completion
+        if: success()
+        run: |
+          echo "✅ APK build completed successfully for release branch ${{ github.ref_name }}"
+          
+      - name: Notify build failure
+        if: failure()
+        run: |
+          echo "❌ APK build failed for release branch ${{ github.ref_name }}"
+
+  build-ios:
+    name: Build iOS IPA
+    runs-on: macos-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.24.3'
+          channel: 'stable'
+          cache: true
+          
+      - name: Get Flutter dependencies
+        run: flutter pub get
+        
+      - name: Run Flutter analyzer
+        run: flutter analyze
+        continue-on-error: true
+        
+      - name: Build iOS (No Code Sign)
+        run: |
+          flutter build ios --release --no-codesign
+          
+      - name: Create IPA
+        run: |
+          mkdir -p Payload
+          cp -r build/ios/iphoneos/Runner.app Payload/
+          zip -r asset-it.ipa Payload
+          rm -rf Payload
+          
+      - name: Get version from branch or pubspec
+        id: version
+        run: |
+          # Extract version from branch name if it matches release-x.x.x pattern
+          BRANCH_NAME="${GITHUB_REF#refs/heads/}"
+          if [[ $BRANCH_NAME =~ ^release-([0-9]+\.[0-9]+\.[0-9]+)$ ]]; then
+            VERSION="${BASH_REMATCH[1]}"
+            echo "Version extracted from branch name: $VERSION"
+          else
+            # Fallback to pubspec.yaml
+            VERSION=$(grep "version:" pubspec.yaml | awk '{print $2}' | tr -d '\r')
+            echo "Version extracted from pubspec.yaml: $VERSION"
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "branch=$BRANCH_NAME" >> $GITHUB_OUTPUT
+          
+      - name: Upload IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: asset-it-ipa-${{ steps.version.outputs.version }}
+          path: asset-it.ipa
+          retention-days: 30
+          
+      - name: Create Release Summary
+        run: |
+          echo "## 🚀 iOS Build Successful" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Version:** ${{ steps.version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Branch:** ${{ steps.version.outputs.branch }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📱 IPA File Generated:" >> $GITHUB_STEP_SUMMARY
+          echo "- asset-it.ipa (iOS App - Ad-hoc signed)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "⚠️ **Note:** This IPA is built without code signing. For App Store distribution, you'll need to sign it properly." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "💾 Download artifact from the bottom of this page" >> $GITHUB_STEP_SUMMARY
+          
+      - name: Notify build completion
+        if: success()
+        run: |
+          echo "✅ iOS IPA build completed successfully for release branch ${{ github.ref_name }}"
+          
+      - name: Notify build failure
+        if: failure()
+        run: |
+          echo "❌ iOS IPA build failed for release branch ${{ github.ref_name }}"

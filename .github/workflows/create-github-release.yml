@@ -1,0 +1,210 @@
+name: Create GitHub Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+jobs:
+  build-android:
+    name: Build Android APKs
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+          cache: 'gradle'
+          
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.24.3'
+          channel: 'stable'
+          cache: 'true'
+          
+      - name: Get Flutter dependencies
+        run: flutter pub get
+        
+      - name: Build APK (Split per ABI)
+        run: flutter build apk --release --split-per-abi
+        
+      - name: Build APK (Universal)
+        run: flutter build apk --release
+        
+      - name: Get version from tag
+        id: version
+        run: |
+          TAG=${GITHUB_REF#refs/tags/}
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          echo "version=${TAG#v}" >> $GITHUB_OUTPUT
+          
+      - name: Rename APK files
+        run: |
+          VERSION=${{ steps.version.outputs.version }}
+          cd build/app/outputs/flutter-apk
+          mv app-armeabi-v7a-release.apk asset-it-v$VERSION-armeabi-v7a.apk
+          mv app-arm64-v8a-release.apk asset-it-v$VERSION-arm64-v8a.apk
+          mv app-x86_64-release.apk asset-it-v$VERSION-x86_64.apk
+          mv app-release.apk asset-it-v$VERSION-universal.apk
+          
+      - name: Upload APK artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-apks
+          path: build/app/outputs/flutter-apk/*.apk
+          retention-days: 1
+
+  build-ios:
+    name: Build iOS IPA
+    runs-on: macos-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.24.3'
+          channel: 'stable'
+          cache: true
+          
+      - name: Get Flutter dependencies
+        run: flutter pub get
+        
+      - name: Build iOS (No Code Sign)
+        run: flutter build ios --release --no-codesign
+        
+      - name: Get version from tag
+        id: version
+        run: |
+          TAG=${GITHUB_REF#refs/tags/}
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          echo "version=${TAG#v}" >> $GITHUB_OUTPUT
+          
+      - name: Create and Rename IPA
+        run: |
+          VERSION=${{ steps.version.outputs.version }}
+          mkdir -p Payload
+          cp -r build/ios/iphoneos/Runner.app Payload/
+          zip -r asset-it-v$VERSION.ipa Payload
+          rm -rf Payload
+          
+      - name: Upload IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-ipa
+          path: asset-it-v*.ipa
+          retention-days: 1
+
+  create-release:
+    name: Create GitHub Release
+    needs: [build-android, build-ios]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        
+      - name: Get version from tag
+        id: version
+        run: |
+          TAG=${GITHUB_REF#refs/tags/}
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          echo "version=${TAG#v}" >> $GITHUB_OUTPUT
+          
+      - name: Download Android APKs
+        uses: actions/download-artifact@v4
+        with:
+          name: android-apks
+          path: android-artifacts
+          
+      - name: Download iOS IPA
+        uses: actions/download-artifact@v4
+        with:
+          name: ios-ipa
+          path: ios-artifacts
+          
+      - name: Generate Release Notes
+        id: release_notes
+        run: |
+          cat > release_notes.md << EOF
+          ## 🔐 asset-it ${{ steps.version.outputs.tag }}
+          
+          ### 📱 Download Options
+          
+          #### 🤖 Android
+          **Recommended:** Download the APK for your device architecture:
+          - **ARM64 (arm64-v8a)**: Most modern Android devices (2019+) ⭐
+          - **ARMv7 (armeabi-v7a)**: Older Android devices
+          - **x86_64**: Android emulators and Intel-based devices
+          - **Universal**: Works on all devices (larger file size)
+          
+          #### 🍎 iOS
+          - **asset-it-v${{ steps.version.outputs.version }}.ipa**: iOS application
+          - ⚠️ **Note**: This IPA is built without code signing. You'll need to sign it for installation on iOS devices.
+          - For App Store distribution, use Xcode with proper provisioning profiles.
+          
+          ### 📝 Changes in this Release
+          
+          _Add your release notes here_
+          
+          ### 🛡️ Security
+          
+          This is an official release built via GitHub Actions. Always download from official sources.
+          
+          ### 📄 Installation
+          
+          **Android:**
+          1. Download the appropriate APK for your device
+          2. Enable "Install from Unknown Sources" in your Android settings
+          3. Open the APK file to install
+          
+          **iOS:**
+          1. Download the IPA file
+          2. Use a tool like AltStore, Sideloadly, or Xcode to install
+          3. For jailbroken devices, use AppSync Unified
+          
+          Enjoy secure password management! 🔐
+          EOF
+          
+          echo "Generated release notes"
+          
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          name: asset-it ${{ steps.version.outputs.tag }}
+          body_path: release_notes.md
+          files: |
+            android-artifacts/*.apk
+            ios-artifacts/*.ipa
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          
+      - name: Release Summary
+        run: |
+          echo "## 🎉 Release Created Successfully" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Version:** ${{ steps.version.outputs.tag }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 🤖 Android APK Files Uploaded:" >> $GITHUB_STEP_SUMMARY
+          echo "- asset-it-v${{ steps.version.outputs.version }}-armeabi-v7a.apk" >> $GITHUB_STEP_SUMMARY
+          echo "- asset-it-v${{ steps.version.outputs.version }}-arm64-v8a.apk" >> $GITHUB_STEP_SUMMARY
+          echo "- asset-it-v${{ steps.version.outputs.version }}-x86_64.apk" >> $GITHUB_STEP_SUMMARY
+          echo "- asset-it-v${{ steps.version.outputs.version }}-universal.apk" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 🍎 iOS IPA File Uploaded:" >> $GITHUB_STEP_SUMMARY
+          echo "- asset-it-v${{ steps.version.outputs.version }}.ipa" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "⚠️ **Note:** iOS IPA requires code signing for device installation" >> $GITHUB_STEP_SUMMARY
