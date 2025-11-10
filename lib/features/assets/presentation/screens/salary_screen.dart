@@ -1,0 +1,869 @@
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:asset_it/config/localization/app_localization.dart';
+import 'package:asset_it/core/utils/app_strings.dart';
+import 'package:asset_it/data/entities/salary.dart';
+import 'package:asset_it/data/entities/spending.dart';
+import 'package:asset_it/features/assets/presentation/providers/salary_provider.dart';
+import 'package:provider/provider.dart';
+import 'package:uuid/uuid.dart';
+
+class SalaryScreen extends StatefulWidget {
+  final Salary? salaryToEdit;
+
+  const SalaryScreen({super.key, this.salaryToEdit});
+
+  @override
+  State<SalaryScreen> createState() => _SalaryScreenState();
+}
+
+class _SalaryScreenState extends State<SalaryScreen> {
+  final _formKey = GlobalKey<FormState>();
+  final _salaryController = TextEditingController();
+  final _notesController = TextEditingController();
+  final List<SpendingFormData> _spendings = [];
+  bool _isLoading = false;
+  bool _isFormValid = false;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.salaryToEdit != null) {
+      _salaryController.text = widget.salaryToEdit!.amount.toString();
+      _notesController.text = widget.salaryToEdit!.notes;
+      _spendings.addAll(
+        widget.salaryToEdit!.spendings.map(
+          (s) {
+            final spending = SpendingFormData(
+              typeController: TextEditingController(text: s.type),
+              amountController: TextEditingController(text: s.amount.toString()),
+              notesController: TextEditingController(text: s.notes),
+            );
+            spending.typeController.addListener(_validateForm);
+            spending.amountController.addListener(_validateForm);
+            return spending;
+          },
+        ),
+      );
+    }
+
+    if (_spendings.isEmpty) {
+      _addSpendingField();
+    }
+
+    _salaryController.addListener(_validateForm);
+    _notesController.addListener(_validateForm);
+    
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _validateForm();
+    });
+  }
+
+  @override
+  void dispose() {
+    _salaryController.dispose();
+    _notesController.dispose();
+    for (var spending in _spendings) {
+      spending.typeController.dispose();
+      spending.amountController.dispose();
+      spending.notesController.dispose();
+    }
+    super.dispose();
+  }
+
+  void _validateForm() {
+    final salaryAmount = double.tryParse(_salaryController.text);
+    bool isValid = salaryAmount != null && salaryAmount > 0;
+
+    for (var spending in _spendings) {
+      final hasType = spending.typeController.text.isNotEmpty;
+      final hasAmount = spending.amountController.text.isNotEmpty;
+      final validAmount = double.tryParse(spending.amountController.text) != null;
+
+      if (hasType || hasAmount) {
+        if (!hasType || !hasAmount || !validAmount) {
+          isValid = false;
+          break;
+        }
+      }
+    }
+
+    if (_isFormValid != isValid) {
+      setState(() {
+        _isFormValid = isValid;
+      });
+    }
+  }
+
+  void _addSpendingField() {
+    final newSpending = SpendingFormData(
+      typeController: TextEditingController(),
+      amountController: TextEditingController(),
+      notesController: TextEditingController(),
+    );
+    
+    newSpending.typeController.addListener(_validateForm);
+    newSpending.amountController.addListener(_validateForm);
+    
+    setState(() {
+      _spendings.add(newSpending);
+    });
+  }
+
+  void _removeSpendingField(int index) {
+    if (_spendings.length > 1) {
+      setState(() {
+        _spendings[index].typeController.dispose();
+        _spendings[index].amountController.dispose();
+        _spendings[index].notesController.dispose();
+        _spendings.removeAt(index);
+      });
+    }
+  }
+
+  Future<void> _saveSalary() async {
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    final salaryAmount = double.tryParse(_salaryController.text) ?? 0.0;
+    final spendings = _spendings
+        .where((s) => s.typeController.text.isNotEmpty && s.amountController.text.isNotEmpty)
+        .map((s) => Spending(
+              id: const Uuid().v4(),
+              type: s.typeController.text,
+              amount: double.tryParse(s.amountController.text) ?? 0.0,
+              notes: s.notesController.text,
+            ))
+        .toList();
+
+    final salary = Salary(
+      id: widget.salaryToEdit?.id ?? const Uuid().v4(),
+      amount: salaryAmount,
+      spendings: spendings,
+      dateAdded: widget.salaryToEdit?.dateAdded ?? DateTime.now(),
+      notes: _notesController.text,
+    );
+
+    final provider = Provider.of<SalaryProvider>(context, listen: false);
+    final success = widget.salaryToEdit != null
+        ? await provider.updateSalary(salary)
+        : await provider.addSalary(salary);
+
+    if (mounted) {
+      setState(() {
+        _isLoading = false;
+      });
+
+      if (success) {
+        Navigator.pop(context, true);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              widget.salaryToEdit != null
+                  ? AppStrings.salaryUpdatedSuccessfully.tr
+                  : AppStrings.salaryAddedSuccessfully.tr,
+            ),
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              widget.salaryToEdit != null
+                  ? AppStrings.failedToUpdateSalary.tr
+                  : AppStrings.failedToAddSalary.tr,
+            ),
+          ),
+        );
+      }
+    }
+  }
+
+  Widget _buildHeader(bool isDark) {
+    final isEdit = widget.salaryToEdit != null;
+    return Container(
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Colors.blue.shade400, Colors.purple.shade400],
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.15),
+            blurRadius: 20,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: IconButton(
+              icon: const Icon(
+                Icons.arrow_back_rounded,
+                color: Colors.white,
+                size: 22,
+              ),
+              onPressed: () => Navigator.pop(context),
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Text(
+              isEdit ? AppStrings.updateSalary.tr : AppStrings.newSalary.tr,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                letterSpacing: -0.5,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Scaffold(
+      backgroundColor: isDark ? const Color(0xFF0A0E27) : const Color(0xFFF5F7FA),
+      body: GestureDetector(
+        onTap: () {
+          FocusScope.of(context).unfocus();
+        },
+        child: SafeArea(
+          child: Column(
+            children: [
+              _buildHeader(isDark),
+              Expanded(
+                child: Form(
+                  key: _formKey,
+                  child: ListView(
+                    padding: const EdgeInsets.all(20),
+                  children: [
+                    _buildSalaryAmountCard(isDark),
+                    const SizedBox(height: 16),
+                    _buildSpendingsCard(isDark),
+                    const SizedBox(height: 16),
+                    _buildNotesCard(isDark),
+                    const SizedBox(height: 16),
+                    _buildSummaryCard(isDark),
+                    const SizedBox(height: 16),
+                    _buildSaveButton(isDark),
+                    const SizedBox(height: 30),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSalaryAmountCard(bool isDark) {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1A1F3A) : Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isDark ? Colors.white.withOpacity(0.1) : Colors.grey.withOpacity(0.2),
+          width: 1.5,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(isDark ? 0.3 : 0.06),
+            blurRadius: 12,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [Colors.blue.shade400, Colors.purple.shade400],
+                  ),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(
+                  Icons.attach_money,
+                  color: Colors.white,
+                  size: 16,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  AppStrings.salaryAmount.tr,
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: isDark ? Colors.white : Colors.grey.shade800,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          TextFormField(
+            controller: _salaryController,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            inputFormatters: [
+              FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}')),
+            ],
+            style: TextStyle(
+              color: isDark ? Colors.white : Colors.grey.shade800,
+              fontSize: 15,
+              fontWeight: FontWeight.w500,
+            ),
+            decoration: InputDecoration(
+              hintText: AppStrings.enterSalaryAmount.tr,
+              hintStyle: TextStyle(
+                color: isDark ? Colors.white38 : Colors.grey.shade400,
+              ),
+              filled: true,
+              fillColor: isDark ? const Color(0xFF0F1329) : Colors.grey.shade100,
+              counterText: '',
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide.none,
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(
+                  color: Colors.blue.shade400,
+                  width: 2,
+                ),
+              ),
+              errorBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(
+                  color: Colors.red.shade400,
+                  width: 1.5,
+                ),
+              ),
+              focusedErrorBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(
+                  color: Colors.red.shade400,
+                  width: 2,
+                ),
+              ),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            ),
+            validator: (value) {
+              if (value == null || value.isEmpty) {
+                return AppStrings.pleaseEnterSalaryAmount.tr;
+              }
+              if (double.tryParse(value) == null) {
+                return AppStrings.pleaseEnterValidNumber.tr;
+              }
+              return null;
+            },
+            onChanged: (value) {
+              _validateForm();
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSpendingsCard(bool isDark) {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1A1F3A) : Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isDark ? Colors.white.withOpacity(0.1) : Colors.grey.withOpacity(0.2),
+          width: 1.5,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(isDark ? 0.3 : 0.06),
+            blurRadius: 12,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [Colors.blue.shade400, Colors.purple.shade400],
+                  ),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(
+                  Icons.shopping_cart,
+                  color: Colors.white,
+                  size: 16,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  AppStrings.spendings.tr,
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: isDark ? Colors.white : Colors.grey.shade800,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          ..._spendings.asMap().entries.map((entry) {
+            final index = entry.key;
+            final spending = entry.value;
+            return _buildSpendingField(spending, index, isDark);
+          }),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: _addSpendingField,
+              icon: const Icon(Icons.add),
+              label: Text(AppStrings.addMore.tr),
+              style: OutlinedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                side: BorderSide(
+                  color: isDark ? Colors.white.withOpacity(0.2) : Colors.grey.withOpacity(0.3),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSpendingField(SpendingFormData spending, int index, bool isDark) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF0F1329) : Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isDark ? Colors.white.withOpacity(0.05) : Colors.grey.withOpacity(0.1),
+        ),
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: TextFormField(
+                  controller: spending.typeController,
+                  style: TextStyle(
+                    color: isDark ? Colors.white : Colors.grey.shade800,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  decoration: InputDecoration(
+                    hintText: AppStrings.enterSpendingType.tr,
+                    hintStyle: TextStyle(
+                      color: isDark ? Colors.white38 : Colors.grey.shade400,
+                    ),
+                    filled: true,
+                    fillColor: isDark ? const Color(0xFF1A1F3A) : Colors.white,
+                    counterText: '',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: BorderSide.none,
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: BorderSide(
+                        color: Colors.blue.shade400,
+                        width: 2,
+                      ),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                  ),
+                  onChanged: (value) => _validateForm(),
+                ),
+              ),
+              if (_spendings.length > 1) ...[
+                const SizedBox(width: 8),
+                IconButton(
+                  onPressed: () => _removeSpendingField(index),
+                  icon: const Icon(Icons.remove_circle, color: Colors.grey),
+                  tooltip: AppStrings.removeSpending.tr,
+                ),
+              ],
+            ],
+          ),
+          const SizedBox(height: 12),
+          TextFormField(
+            controller: spending.amountController,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            inputFormatters: [
+              FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}')),
+            ],
+            style: TextStyle(
+              color: isDark ? Colors.white : Colors.grey.shade800,
+              fontSize: 15,
+              fontWeight: FontWeight.w500,
+            ),
+            decoration: InputDecoration(
+              hintText: AppStrings.enterSpendingAmount.tr,
+              hintStyle: TextStyle(
+                color: isDark ? Colors.white38 : Colors.grey.shade400,
+              ),
+              filled: true,
+              fillColor: isDark ? const Color(0xFF1A1F3A) : Colors.white,
+              counterText: '',
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: BorderSide.none,
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: BorderSide(
+                  color: Colors.blue.shade400,
+                  width: 2,
+                ),
+              ),
+              errorBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: BorderSide(
+                  color: Colors.red.shade400,
+                  width: 1.5,
+                ),
+              ),
+              focusedErrorBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: BorderSide(
+                  color: Colors.red.shade400,
+                  width: 2,
+                ),
+              ),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+            ),
+            onChanged: (value) => _validateForm(),
+          ),
+          const SizedBox(height: 12),
+          TextFormField(
+            controller: spending.notesController,
+            style: TextStyle(
+              color: isDark ? Colors.white : Colors.grey.shade800,
+              fontSize: 15,
+              fontWeight: FontWeight.w500,
+            ),
+            decoration: InputDecoration(
+              hintText: AppStrings.enterNotes.tr,
+              hintStyle: TextStyle(
+                color: isDark ? Colors.white38 : Colors.grey.shade400,
+              ),
+              filled: true,
+              fillColor: isDark ? const Color(0xFF1A1F3A) : Colors.white,
+              counterText: '',
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: BorderSide.none,
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: BorderSide(
+                  color: Colors.blue.shade400,
+                  width: 2,
+                ),
+              ),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNotesCard(bool isDark) {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1A1F3A) : Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isDark ? Colors.white.withOpacity(0.1) : Colors.grey.withOpacity(0.2),
+          width: 1.5,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(isDark ? 0.3 : 0.06),
+            blurRadius: 12,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [Colors.blue.shade400, Colors.purple.shade400],
+                  ),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(
+                  Icons.notes,
+                  color: Colors.white,
+                  size: 16,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  AppStrings.notes.tr,
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: isDark ? Colors.white : Colors.grey.shade800,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          TextFormField(
+            controller: _notesController,
+            maxLines: 3,
+            style: TextStyle(
+              color: isDark ? Colors.white : Colors.grey.shade800,
+              fontSize: 15,
+              fontWeight: FontWeight.w500,
+            ),
+            decoration: InputDecoration(
+              hintText: AppStrings.enterNotes.tr,
+              hintStyle: TextStyle(
+                color: isDark ? Colors.white38 : Colors.grey.shade400,
+              ),
+              filled: true,
+              fillColor: isDark ? const Color(0xFF0F1329) : Colors.grey.shade100,
+              counterText: '',
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide.none,
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(
+                  color: Colors.blue.shade400,
+                  width: 2,
+                ),
+              ),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSummaryCard(bool isDark) {
+    return StatefulBuilder(
+      builder: (context, setState) {
+        final salaryAmount = double.tryParse(_salaryController.text) ?? 0.0;
+        final totalSpendings = _spendings.fold<double>(
+          0.0,
+          (sum, s) => sum + (double.tryParse(s.amountController.text) ?? 0.0),
+        );
+        final remaining = salaryAmount - totalSpendings;
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1A1F3A) : Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isDark ? Colors.white.withOpacity(0.1) : Colors.grey.withOpacity(0.2),
+          width: 1.5,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(isDark ? 0.3 : 0.06),
+            blurRadius: 12,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                AppStrings.salaryAmount.tr,
+                style: TextStyle(
+                  color: isDark ? Colors.white70 : Colors.grey.shade600,
+                  fontSize: 14,
+                ),
+              ),
+              Text(
+                salaryAmount.toStringAsFixed(2),
+                style: TextStyle(
+                  color: isDark ? Colors.white : Colors.grey.shade800,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                AppStrings.totalSpendings.tr,
+                style: TextStyle(
+                  color: isDark ? Colors.white70 : Colors.grey.shade600,
+                  fontSize: 14,
+                ),
+              ),
+              Text(
+                totalSpendings.toStringAsFixed(2),
+                style: const TextStyle(
+                  color: Colors.redAccent,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          Divider(color: isDark ? Colors.white38 : Colors.grey.shade300, height: 24),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                AppStrings.remainingAmount.tr,
+                style: TextStyle(
+                  color: isDark ? Colors.white : Colors.grey.shade800,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              Text(
+                remaining.toStringAsFixed(2),
+                style: TextStyle(
+                  color: remaining >= 0 ? Colors.greenAccent : Colors.redAccent,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+      },
+    );
+  }
+
+  Widget _buildSaveButton(bool isDark) {
+    final isEdit = widget.salaryToEdit != null;
+    final isEnabled = _isFormValid && !_isLoading;
+
+    return Container(
+      width: double.infinity,
+      decoration: isEnabled
+          ? BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Colors.blue.shade400, Colors.purple.shade400],
+              ),
+              borderRadius: BorderRadius.circular(14),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.blue.withOpacity(0.3),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            )
+          : null,
+      child: ElevatedButton(
+        onPressed: isEnabled ? _saveSalary : null,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: isEnabled
+              ? Colors.transparent
+              : (isDark ? const Color(0xFF1A1F3A) : Colors.grey.shade200),
+          foregroundColor: isEnabled
+              ? Colors.white
+              : (isDark ? Colors.white38 : Colors.grey.shade400),
+          shadowColor: Colors.transparent,
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
+        ),
+        child: _isLoading
+            ? const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                ),
+              )
+            : Text(
+                isEdit ? AppStrings.update.tr : AppStrings.save.tr,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+      ),
+    );
+  }
+}
+
+class SpendingFormData {
+  final TextEditingController typeController;
+  final TextEditingController amountController;
+  final TextEditingController notesController;
+
+  SpendingFormData({
+    required this.typeController,
+    required this.amountController,
+    required this.notesController,
+  });
+}
