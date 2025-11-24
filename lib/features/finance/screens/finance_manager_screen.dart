@@ -531,6 +531,13 @@ class _FinanceManagerScreenState extends State<FinanceManagerScreen>
     }
   }
 
+  String _formatValue(double value) {
+    String formatted = value.toStringAsFixed(4);
+    formatted = formatted.replaceAll(RegExp(r'0*$'), '');
+    formatted = formatted.replaceAll(RegExp(r'\.$'), '');
+    return formatted;
+  }
+
   Widget _buildCurrenciesTab(FinanceProvider provider, bool isDark) {
     final filteredCurrencies =
         _filterFinances(provider.currencyFinances, _currencySearchQuery);
@@ -991,7 +998,7 @@ class _FinanceManagerScreenState extends State<FinanceManagerScreen>
                 ),
                 const SizedBox(width: 6),
                 Text(
-                  finance.value.toStringAsFixed(4),
+                  _formatValue(finance.value),
                   style: TextStyle(
                     color: isDark ? Colors.white : Colors.grey.shade800,
                     fontWeight: FontWeight.w800,

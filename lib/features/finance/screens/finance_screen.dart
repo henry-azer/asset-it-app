@@ -49,7 +49,7 @@ class _FinanceScreenState extends State<FinanceScreen> {
     if (widget.finance != null) {
       _codeController.text = widget.finance!.code;
       _nameController.text = widget.finance!.name ?? '';
-      _valueController.text = widget.finance!.value.toStringAsFixed(2);
+      _valueController.text = widget.finance!.value.toString();
       if (widget.financeType == FinanceType.currency) {
         _symbolController.text =
             CurrencyService.getCurrencySymbol(widget.finance!.code);
