@@ -202,7 +202,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     icon: Icons.info_outline,
                     title: AppStrings.about.tr,
                     subtitle:
-                        '${AppStrings.aboutSubtitle.tr} ${_packageInfo?.version ?? '1.0.0'}',
+                        '${AppStrings.version.tr} ${_packageInfo?.version ?? '1.0.0'}',
                     onTap: () => Navigator.pushNamed(context, Routes.about),
                   ),
                   const SizedBox(height: 10),

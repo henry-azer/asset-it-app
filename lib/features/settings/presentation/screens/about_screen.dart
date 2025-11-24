@@ -370,7 +370,7 @@ class _AboutScreenState extends State<AboutScreen> {
                 ),
                 SizedBox(height: 2),
                 Text(
-                  AppStrings.aboutSubtitle.tr,
+                  '${AppStrings.version.tr} $_version',
                   style: TextStyle(
                     color: Colors.white70,
                     fontSize: 13,

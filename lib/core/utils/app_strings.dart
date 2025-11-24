@@ -281,7 +281,7 @@ class AppStrings {
   static const String found = 'found';
 
   static const String version = 'version';
-  static const String aboutAppDescription = 'about_app_description';
+    static const String aboutAppDescription = 'about_app_description';
   static const String keyFeatures = 'key_features';
   static const String aboutSecurityTitle = 'about_security_title';
   static const String aboutSecurityDescription = 'about_security_description';
@@ -292,6 +292,7 @@ class AppStrings {
   static const String developerInfo = 'developer_info';
   static const String developedBy = 'developed_by';
   static const String followMe = 'follow_me';
+  static const String contactMe = 'contact_me';
   static const String linkedin = 'linkedin';
   static const String github = 'github';
   static const String email = 'email';
@@ -301,7 +302,6 @@ class AppStrings {
   static const String aboutPrivacyPolicy = 'about_privacy_policy';
   static const String aboutTermsOfService = 'about_terms_of_service';
   static const String copyright = 'copyright';
-  static const String aboutSubtitle = 'about_subtitle';
   static const String errorLaunchingUrl = 'error_launching_url';
   static const String privacyPolicyTitle = 'privacy_policy_title';
   static const String privacyPolicyContent = 'privacy_policy_content';
