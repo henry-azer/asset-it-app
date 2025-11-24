@@ -17,7 +17,9 @@ class FinanceManagerWelcomeScreen extends StatefulWidget {
       _FinanceManagerWelcomeScreenState();
 }
 
-class _FinanceManagerWelcomeScreenState extends State<FinanceManagerWelcomeScreen> with SingleTickerProviderStateMixin, WidgetsBindingObserver {
+class _FinanceManagerWelcomeScreenState
+    extends State<FinanceManagerWelcomeScreen>
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   final CurrencyService _currencyService = sl<CurrencyService>();
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
@@ -247,36 +249,43 @@ class _FinanceManagerWelcomeScreenState extends State<FinanceManagerWelcomeScree
                         children: [
                           Expanded(
                             child: SingleChildScrollView(
-                              padding: const EdgeInsets.all(20),
                               child: Column(
                                 children: [
-                                  _buildWelcomeCard(isDark),
-                                  const SizedBox(height: 20),
-                                  if (!_failedToFetchCurrencies)
-                                    _buildFinanceInfoCard(isDark),
-                                  if (!_failedToFetchCurrencies)
-                                    const SizedBox(height: 20),
-                                  if (!_isCustomMode) ...[
-                                    _buildCurrencySelector(isDark),
-                                    const SizedBox(height: 16),
-                                    _buildCustomCurrencyButton(isDark),
+                                  Padding(
+                                    padding: const EdgeInsets.all(20),
+                                    child: Column(
+                                      children: [
+                                        _buildWelcomeCard(isDark),
+                                        const SizedBox(height: 20),
+                                        if (!_failedToFetchCurrencies)
+                                          _buildFinanceInfoCard(isDark),
+                                        if (!_failedToFetchCurrencies)
+                                          const SizedBox(height: 20),
+                                        if (!_isCustomMode) ...[
+                                          _buildCurrencySelector(isDark),
+                                          const SizedBox(height: 16),
+                                          _buildCustomCurrencyButton(isDark),
+                                        ],
+                                        if (_isCustomMode) ...[
+                                          _buildCustomCurrencyFields(isDark),
+                                          const SizedBox(height: 16),
+                                          _buildBackToSelectorButton(isDark),
+                                        ],
+                                        if (_selectedCurrency != null &&
+                                            !_isCustomMode) ...[
+                                          const SizedBox(height: 16),
+                                          _buildCurrencyInfoCard(isDark),
+                                        ],
+                                        if (_failedToFetchCurrencies) ...[
+                                          const SizedBox(height: 16),
+                                          _buildWarningCard(isDark),
+                                        ],
+                                      ],
+                                    ),
+                                  ),
+                                  if (_keyboardVisible) ... [
+                                    _buildBottomBar(isDark),
                                   ],
-                                  if (_isCustomMode) ...[
-                                    _buildCustomCurrencyFields(isDark),
-                                    const SizedBox(height: 16),
-                                    _buildBackToSelectorButton(isDark),
-                                  ],
-                                  if (_selectedCurrency != null &&
-                                      !_isCustomMode) ...[
-                                    const SizedBox(height: 16),
-                                    _buildCurrencyInfoCard(isDark),
-                                  ],
-                                  if (_failedToFetchCurrencies) ...[
-                                    const SizedBox(height: 16),
-                                    _buildWarningCard(isDark),
-                                  ],
-                                  const SizedBox(height: 20),
-                                  if (_keyboardVisible) _buildBottomBar(isDark),
                                 ],
                               ),
                             ),
