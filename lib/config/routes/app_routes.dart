@@ -1,5 +1,5 @@
 import 'package:asset_it/features/assets/presentation/screens/asset_screen.dart';
-import 'package:asset_it/features/assets/presentation/screens/salaries_screen.dart';
+import 'package:asset_it/features/assets/presentation/screens/salaries_manager_screen.dart';
 import 'package:asset_it/features/assets/presentation/screens/salary_screen.dart';
 import 'package:asset_it/features/finance/screens/finance_manager_screen.dart';
 import 'package:asset_it/features/settings/presentation/screens/user_profile_screen.dart';
@@ -216,7 +216,7 @@ class AppRoutes {
 
       case Routes.salaryManager:
         return MaterialPageRoute(
-          builder: (context) => const SalariesScreen(),
+          builder: (context) => const SalariesManagerScreen(),
         );
 
       case Routes.salary:

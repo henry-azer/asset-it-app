@@ -2,21 +2,23 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:asset_it/config/localization/app_localization.dart';
 import 'package:asset_it/config/routes/app_routes.dart';
+import 'package:asset_it/core/utils/app_colors.dart';
 import 'package:asset_it/core/utils/app_strings.dart';
 import 'package:asset_it/core/utils/number_formatter.dart';
 import 'package:asset_it/data/entities/salary.dart';
 import 'package:asset_it/features/assets/presentation/providers/salary_provider.dart';
 import 'package:provider/provider.dart';
 
-class SalariesScreen extends StatefulWidget {
-  const SalariesScreen({super.key});
+class SalariesManagerScreen extends StatefulWidget {
+  const SalariesManagerScreen({super.key});
 
   @override
-  State<SalariesScreen> createState() => _SalariesScreenState();
+  State<SalariesManagerScreen> createState() => _SalariesManagerScreenState();
 }
 
-class _SalariesScreenState extends State<SalariesScreen> {
+class _SalariesManagerScreenState extends State<SalariesManagerScreen> {
   bool _isInitialLoading = true;
+  final Map<String, bool> _expandedSalaries = {};
 
   @override
   void initState() {
@@ -292,6 +294,7 @@ class _SalariesScreenState extends State<SalariesScreen> {
   }
 
   Widget _buildSalaryCard(Salary salary, bool isDark) {
+    final isExpanded = _expandedSalaries[salary.id] ?? true;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -299,7 +302,9 @@ class _SalariesScreenState extends State<SalariesScreen> {
         color: isDark ? const Color(0xFF1A1F3A) : Colors.white,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: isDark ? Colors.white.withOpacity(0.1) : Colors.grey.withOpacity(0.2),
+          color: isDark
+              ? Colors.white.withOpacity(0.1)
+              : Colors.grey.withOpacity(0.2),
           width: 1.5,
         ),
         boxShadow: [
@@ -361,10 +366,11 @@ class _SalariesScreenState extends State<SalariesScreen> {
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          _formatDate(salary.dateAdded),
+                          '${salary.spendings.length} ${salary.spendings.length == 1 ? AppStrings.item.tr : AppStrings.items.tr}',
                           style: TextStyle(
                             fontSize: 12,
-                            color: isDark ? Colors.white60 : Colors.grey.shade600,
+                            color:
+                                isDark ? Colors.white60 : Colors.grey.shade600,
                           ),
                         ),
                       ],
@@ -381,6 +387,9 @@ class _SalariesScreenState extends State<SalariesScreen> {
                           color: isDark ? Colors.white : Colors.grey.shade800,
                         ),
                       ),
+                      // if (salary.totalSpendings > 0) ...[
+
+                      // ],
                       const SizedBox(height: 2),
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -393,142 +402,167 @@ class _SalariesScreenState extends State<SalariesScreen> {
                         child: Text(
                           NumberFormatter.formatWithSymbol(salary.remainingAmount),
                           style: TextStyle(
-                            fontSize: 11,
+                            fontSize: 11.5,
                             fontWeight: FontWeight.w600,
                             color: salary.remainingAmount >= 0 ? Colors.green : Colors.red,
                           ),
                         ),
                       ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ),
-          InkWell(
-            onTap: () async {
-              HapticFeedback.lightImpact();
-              final result = await Navigator.pushNamed(
-                context,
-                Routes.salary,
-                arguments: salary,
-              );
-              if (result == true && mounted) {
-                _loadSalaries();
-              }
-            },
-            child: Container(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Divider(),
-                  const SizedBox(height: 8),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        AppStrings.spendings.tr,
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: isDark ? Colors.white70 : Colors.grey.shade700,
-                        ),
-                      ),
-                      Text(
-                        NumberFormatter.formatWithSymbol(salary.totalSpendings),
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.red.shade400,
+                      const SizedBox(height: 2),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        child: Text(
+                          NumberFormatter.formatWithSymbol(salary.totalSpendings),
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.error,
+                          ),
                         ),
                       ),
                     ],
                   ),
-                const SizedBox(height: 12),
-                if (salary.spendings.isNotEmpty) ...[
-                  ...salary.spendings.map((spending) => Padding(
-                        padding: const EdgeInsets.only(bottom: 8),
-                        child: Row(
-                          children: [
-                            Container(
-                              width: 8,
-                              height: 8,
-                              decoration: BoxDecoration(
-                                color: Colors.blue.shade400,
-                                shape: BoxShape.circle,
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    spending.type,
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w500,
-                                      color: isDark ? Colors.white : Colors.grey.shade800,
-                                    ),
-                                  ),
-                                  if (spending.notes.isNotEmpty)
-                                    Text(
-                                      spending.notes,
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        color: isDark ? Colors.white60 : Colors.grey.shade600,
-                                      ),
-                                    ),
-                                ],
-                              ),
-                            ),
-                            Text(
-                              NumberFormatter.formatWithSymbol(spending.amount),
-                              style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                                color: isDark ? Colors.white : Colors.grey.shade800,
-                              ),
-                            ),
-                          ],
+                if (salary.totalSpendings > 0) ...[
+
+              const SizedBox(width: 8),
+                  InkWell(
+                    onTap: () {
+                      setState(() {
+                        _expandedSalaries[salary.id] = !isExpanded;
+                      });
+                      HapticFeedback.lightImpact();
+                    },
+                    borderRadius: BorderRadius.circular(20),
+                    child: Padding(
+                      padding: const EdgeInsets.all(4),
+                      child: AnimatedRotation(
+                        duration: const Duration(milliseconds: 200),
+                        turns: isExpanded ? 0.5 : 0,
+                        child: Icon(
+                          Icons.expand_more,
+                          color: isDark ? Colors.white60 : Colors.grey.shade600,
+                          size: 20,
                         ),
-                      )),
-                ],
-                if (salary.notes.isNotEmpty) ...[
-                  const SizedBox(height: 16),
-                  const Divider(),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Text(
-                        AppStrings.notes.tr,
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: isDark ? Colors.white70 : Colors.grey.shade700,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 5.0),
-                    child: Text(
-                      salary.notes,
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: isDark ? Colors.white70 : Colors.grey.shade700,
-                        height: 1.4,
                       ),
                     ),
                   ),
                 ],
-              ],
+                ],
+              ),
             ),
           ),
+          AnimatedCrossFade(
+            firstChild: const SizedBox.shrink(),
+            secondChild: Column(
+              children: [
+                Divider(
+                  height: 1,
+                  color: isDark
+                      ? Colors.white.withOpacity(0.1)
+                      : Colors.grey.withOpacity(0.2),
+                  thickness: 1,
+                ),
+                ...salary.spendings.map((spending) {
+                  final percentage = salary.amount > 0
+                      ? (spending.amount / salary.amount) * 100
+                      : 0.0;
+                  return _buildSpendingItem(spending, percentage, isDark, salary);
+                }),
+              ],
+            ),
+            crossFadeState: isExpanded
+                ? CrossFadeState.showSecond
+                : CrossFadeState.showFirst,
+            duration: const Duration(milliseconds: 200),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildSpendingItem(dynamic spending, double percentage, bool isDark, Salary salary) {
+    return InkWell(
+      onTap: () async {
+        HapticFeedback.lightImpact();
+        final result = await Navigator.pushNamed(
+          context,
+          Routes.salary,
+          arguments: salary,
+        );
+        if (result == true && mounted) {
+          _loadSalaries();
+        }
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          border: Border(
+            top: BorderSide(
+              color: isDark ? AppColors.darkCardBorder : AppColors.lightCardBorder,
+              width: 0.5,
+            ),
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: AppColors.error.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(
+                Icons.shopping_cart_outlined,
+                color: AppColors.error,
+                size: 18,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    spending.type,
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  NumberFormatter.formatWithSymbol(spending.amount),
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.error,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      '(${percentage.toStringAsFixed(1)}%)',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.error,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -803,21 +837,5 @@ class _SalariesScreenState extends State<SalariesScreen> {
         ),
       ),
     );
-  }
-
-  String _formatDate(DateTime date) {
-    final now = DateTime.now();
-    final difference = now.difference(date);
-
-    if (difference.inDays == 0) {
-      return AppStrings.today.tr;
-    } else if (difference.inDays == 1) {
-      return AppStrings.yesterday.tr;
-    } else if (difference.inDays < 30) {
-      return AppStrings.daysAgo.tr.replaceAll('{count}', difference.inDays.toString());
-    } else {
-      final months = (difference.inDays / 30).floor();
-      return AppStrings.monthsAgo.tr.replaceAll('{count}', months.toString());
-    }
   }
 }
