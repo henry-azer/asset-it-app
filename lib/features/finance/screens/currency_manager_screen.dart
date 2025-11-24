@@ -85,6 +85,7 @@ class _CurrencyManagerScreenState extends State<CurrencyManagerScreen> {
     final activeChoice = provider.activeCurrencyChoice;
 
     return Container(
+        height: MediaQuery.of(context).size.height * 0.25,
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
           gradient: LinearGradient(
@@ -152,8 +153,10 @@ class _CurrencyManagerScreenState extends State<CurrencyManagerScreen> {
                 ),
               ],
             ),
-            const SizedBox(height: 20),
-            _buildHeaderStats(provider),
+            const SizedBox(height: 16),
+            Flexible(
+              child: _buildHeaderStats(provider),
+            ),
           ],
         ),
       );

@@ -1,4 +1,4 @@
-import 'package:asset_it/features/assets/presentation/screens/assets_screen.dart';
+import 'package:asset_it/features/assets/presentation/screens/assets_manager_screen.dart';
 import 'package:asset_it/features/dashboard/presentation/screens/dashboard_screen.dart';
 import 'package:asset_it/features/finance/screens/finance_manager_screen.dart';
 import 'package:flutter/material.dart';
@@ -23,7 +23,7 @@ class _AppNavigatorScreenState extends State<AppNavigatorScreen> with WidgetsBin
 
   final List<Widget> _screens = [
     const DashboardScreen(),
-    const AssetsScreen(),
+    const AssetsManagerScreen(),
     const FinanceManagerScreen(),
     const SettingsScreen(),
   ];

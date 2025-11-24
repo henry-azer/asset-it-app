@@ -39,7 +39,7 @@ class Routes {
 
   static const String dashboard = '/app/dashboard';
 
-  static const String assets = '/app/assets';
+  static const String assetManager = '/app/asset-manager';
   static const String asset = '/app/assets/asset';
 
   static const String financeManager = '/app/finance-manager';

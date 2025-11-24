@@ -251,8 +251,10 @@ class _FinanceManagerScreenState extends State<FinanceManagerScreen>
               ),
             ],
           ),
-          const SizedBox(height: 20),
-          _buildHeaderStats(financeProvider, currencySymbol, isDark),
+          const SizedBox(height: 16),
+          Flexible(
+            child: _buildHeaderStats(financeProvider, currencySymbol, isDark),
+          ),
         ],
       ),
     );

@@ -13,14 +13,14 @@ import 'package:asset_it/features/assets/presentation/screens/assets_welcome_scr
 import 'package:asset_it/features/finance/providers/finance_provider.dart';
 import 'package:provider/provider.dart';
 
-class AssetsScreen extends StatefulWidget {
-  const AssetsScreen({super.key});
+class AssetsManagerScreen extends StatefulWidget {
+  const AssetsManagerScreen({super.key});
 
   @override
-  State<AssetsScreen> createState() => _AssetsScreenState();
+  State<AssetsManagerScreen> createState() => _AssetsManagerScreenState();
 }
 
-class _AssetsScreenState extends State<AssetsScreen>
+class _AssetsManagerScreenState extends State<AssetsManagerScreen>
     with TickerProviderStateMixin {
   late AnimationController _animationController;
   final Map<AssetType, bool> _expandedGroups = {};
@@ -561,8 +561,10 @@ class _AssetsScreenState extends State<AssetsScreen>
             ],
           ),
           if (provider.assetsWithValues.isNotEmpty) ...[
-            const SizedBox(height: 20),
-            _buildHeaderStats(provider),
+            const SizedBox(height: 16),
+            Flexible(
+              child: _buildHeaderStats(provider),
+            ),
           ],
         ],
       ),

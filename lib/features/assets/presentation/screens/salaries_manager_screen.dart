@@ -190,8 +190,10 @@ class _SalariesManagerScreenState extends State<SalariesManagerScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 20),
-          _buildHeaderStats(provider),
+          const SizedBox(height: 16),
+          Flexible(
+            child: _buildHeaderStats(provider),
+          ),
         ],
       ),
     );
