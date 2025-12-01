@@ -583,7 +583,8 @@ class _CurrencyManagerScreenState extends State<CurrencyManagerScreen> {
 
     final inactiveCurrencies = provider.currencyChoices
         .where((choice) => choice.id != provider.activeCurrencyChoice?.id)
-        .toList();
+        .toList()
+      ..sort((a, b) => a.currencyName.toLowerCase().compareTo(b.currencyName.toLowerCase()));
 
     final filteredCurrencies = _filterCurrencies(inactiveCurrencies, _searchQuery);
 
