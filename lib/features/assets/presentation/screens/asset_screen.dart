@@ -275,7 +275,6 @@ class _AssetScreenState extends State<AssetScreen> {
     final currencyFinances = financeProvider.currencyFinances;
 
     final currencies = currencyFinances.map((f) => f.code).toList();
-    currencies.sort();
     
     setState(() {
       _availableCurrencies = currencies;

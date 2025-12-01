@@ -268,11 +268,29 @@ class _AssetsManagerScreenState extends State<AssetsManagerScreen>
                           color: _getGroupValueColor(type, isDark),
                         ),
                       ),
+                      if (type == AssetType.currency || type == AssetType.stock || type == AssetType.gold) ...[
+                        Builder(
+                          builder: (context) {
+                            final totalPurchaseValue = assets.fold<double>(
+                                0, (sum, asset) => sum + asset.purchaseValue);
+                            return Padding(
+                              padding: const EdgeInsets.only(top: 2),
+                              child: Text(
+                                NumberFormatter.formatWithSymbol(totalPurchaseValue),
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: isDark ? Colors.white60 : Colors.grey.shade600,
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ],
+
                       if (totalGainLoss != 0) ...[
                         const SizedBox(height: 2),
                         Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 6, vertical: 2),
+                          padding: const EdgeInsets.symmetric(vertical: 2),
                           decoration: BoxDecoration(
                             color: totalGainLoss > 0
                                 ? AppColors.success.withOpacity(0.1)

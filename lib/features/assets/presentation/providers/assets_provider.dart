@@ -151,9 +151,16 @@ class AssetsProvider extends ChangeNotifier {
         return false;
       }
 
+      final assetsOfSameType = _assets.where((a) => a.type == asset.type).toList();
+      final maxSortOrder = assetsOfSameType.isEmpty
+          ? -1
+          : assetsOfSameType.map((a) => a.sortOrder).reduce((a, b) => a > b ? a : b);
+
       final assetWithCalculatedValues = _calculateAndSetAssetValues(asset);
-      final assetWithCurrency =
-          assetWithCalculatedValues.copyWith(baseCurrency: activeCurrencyChoice.baseCurrency);
+      final assetWithCurrency = assetWithCalculatedValues.copyWith(
+        baseCurrency: activeCurrencyChoice.baseCurrency,
+        sortOrder: maxSortOrder + 1,
+      );
       await _dataSource.insertAsset(assetWithCurrency, activeCurrencyChoice.id);
       await loadAssets();
       return true;

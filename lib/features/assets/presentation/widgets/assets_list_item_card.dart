@@ -87,7 +87,9 @@ class AssetsListItemCard extends StatelessWidget {
                     color: _getValueColor(assetWithValue.asset.type, assetWithValue.currentValue, isDark),
                   ),
                 ),
-                if (assetWithValue.asset.type == AssetType.loan) ...[
+                if (assetWithValue.asset.type == AssetType.loan &&
+                    assetWithValue.asset.loanInterestRate != null && 
+                    assetWithValue.asset.loanInterestRate! > 0) ...[
                   const SizedBox(height: 2),
                   Text(
                     NumberFormatter.formatWithSymbol(assetWithValue.purchaseValue.abs()),
@@ -96,18 +98,15 @@ class AssetsListItemCard extends StatelessWidget {
                       color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
                     ),
                   ),
-                  if (assetWithValue.asset.loanInterestRate != null && 
-                      assetWithValue.asset.loanInterestRate! > 0) ...[
-                    const SizedBox(height: 2),
-                    Text(
-                      '${assetWithValue.asset.loanInterestRate!.toStringAsFixed(2)}%',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.error,
-                      ),
+                  const SizedBox(height: 2),
+                  Text(
+                    '${assetWithValue.asset.loanInterestRate!.toStringAsFixed(2)}%',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.error,
                     ),
-                  ],
+                  ),
                 ],
                 if (assetWithValue.gainLoss != 0 && 
                     assetWithValue.asset.type != AssetType.loan && 
@@ -173,16 +172,16 @@ class AssetsListItemCard extends StatelessWidget {
   }
 
   String? _getSubtitle(Asset asset) {
-    if (asset.type == AssetType.gold && asset.goldGrams != null) {
+    if (asset.type == AssetType.gold && asset.goldGrams != null && asset.goldGrams! > 0) {
       return '${NumberFormatter.formatNumber(asset.goldGrams!, decimalPlaces: 2)}g';
-    } else if (asset.type == AssetType.stock && asset.stockShares != null) {
+    } else if (asset.type == AssetType.stock && asset.stockShares != null && asset.stockShares! > 0) {
       return '${NumberFormatter.formatNumber(asset.stockShares!, decimalPlaces: 2)} ${AppStrings.shares.tr}';
     } else if (asset.type == AssetType.bankAccount && asset.bankAccountType != null) {
       return asset.bankAccountType;
     } else if (asset.type == AssetType.creditCard) {
       final limit = asset.creditLimit ?? 0;
       return '${AppStrings.limit.tr} ${NumberFormatter.formatWithSymbol(limit, showDecimals: false)}';
-    } else if ((asset.type == AssetType.currency || asset.type == AssetType.cash) && asset.currencyAmount != null) {
+    } else if ((asset.type == AssetType.currency || asset.type == AssetType.cash) && asset.currencyAmount != null && asset.currencyAmount! > 0) {
       return '${NumberFormatter.formatNumber(asset.currencyAmount!, decimalPlaces: 2)} ${asset.currency ?? ''}';
     }
     return null;
