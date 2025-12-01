@@ -101,7 +101,7 @@ class _SalariesManagerScreenState extends State<SalariesManagerScreen> {
                               ...provider.salaries.asMap().entries.map((entry) {
                                 final index = entry.key;
                                 final salary = entry.value;
-                                return ReorderableDragStartListener(
+                                return ReorderableDelayedDragStartListener(
                                   key: ValueKey(salary.id),
                                   index: index,
                                   child: _buildSalaryCard(salary, isDark),
@@ -359,7 +359,7 @@ class _SalariesManagerScreenState extends State<SalariesManagerScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          AppStrings.salary.tr,
+                          salary.name.isNotEmpty ? salary.name : AppStrings.salary.tr,
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
@@ -464,12 +464,7 @@ class _SalariesManagerScreenState extends State<SalariesManagerScreen> {
                       : Colors.grey.withOpacity(0.2),
                   thickness: 1,
                 ),
-                ...salary.spendings.map((spending) {
-                  final percentage = salary.amount > 0
-                      ? (spending.amount / salary.amount) * 100
-                      : 0.0;
-                  return _buildSpendingItem(spending, percentage, isDark, salary);
-                }),
+                _buildSpendingsList(salary, isDark),
               ],
             ),
             crossFadeState: isExpanded
@@ -479,6 +474,56 @@ class _SalariesManagerScreenState extends State<SalariesManagerScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildSpendingsList(Salary salary, bool isDark) {
+    final sortedSpendings = List.from(salary.spendings)
+      ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
+    
+    if (sortedSpendings.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return ReorderableListView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      buildDefaultDragHandles: false,
+      itemCount: sortedSpendings.length,
+      proxyDecorator: (child, index, animation) {
+        return AnimatedBuilder(
+          animation: animation,
+          builder: (context, child) {
+            final double elevation = Tween<double>(
+              begin: 0,
+              end: 4,
+            ).evaluate(animation);
+            return Material(
+              elevation: elevation,
+              color: Colors.transparent,
+              shadowColor: Colors.black.withOpacity(0.2),
+              child: child,
+            );
+          },
+          child: child,
+        );
+      },
+      onReorder: (oldIndex, newIndex) {
+        final provider = Provider.of<SalaryProvider>(context, listen: false);
+        provider.reorderSpendings(salary.id, oldIndex, newIndex);
+        HapticFeedback.mediumImpact();
+      },
+      itemBuilder: (context, index) {
+        final spending = sortedSpendings[index];
+        final percentage = salary.amount > 0
+            ? (spending.amount / salary.amount) * 100
+            : 0.0;
+        return ReorderableDelayedDragStartListener(
+          key: ValueKey(spending.id),
+          index: index,
+          child: _buildSpendingItem(spending, percentage, isDark, salary),
+        );
+      },
     );
   }
 

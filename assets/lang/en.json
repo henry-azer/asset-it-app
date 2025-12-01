@@ -489,5 +489,15 @@
   "spending_notes": "Notes",
   "enter_notes": "Enter notes (optional)",
   "add_more": "Add More",
-  "remove_spending": "Remove Spending"
+  "remove_spending": "Remove Spending",
+  "incomes": "Incomes",
+  "income_type": "Income Type",
+  "income_amount": "Income Amount",
+  "add_income": "Add Income",
+  "total_incomes": "Total Incomes",
+  "enter_income_type": "Enter income type",
+  "enter_income_amount": "Enter income amount",
+  "remove_income": "Remove Income",
+  "salary_name": "Salary Name",
+  "enter_salary_name": "e.g. Feb Salary, Bonus..."
 }

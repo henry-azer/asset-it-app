@@ -35,7 +35,7 @@ class SalaryProvider extends ChangeNotifier {
         return;
       }
       _salaries = await _dataSource.getSalaries(profileId);
-      _salaries.sort((a, b) => b.dateAdded.compareTo(a.dateAdded));
+      _salaries.sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
     } catch (e) {
       _error = e.toString();
     } finally {
@@ -49,7 +49,12 @@ class SalaryProvider extends ChangeNotifier {
       final profileId = _currencyChoiceProvider.activeCurrencyChoice?.id ?? '';
       if (profileId.isEmpty) return false;
       
-      await _dataSource.saveSalary(salary, profileId);
+      final maxSortOrder = _salaries.isEmpty
+          ? -1
+          : _salaries.map((s) => s.sortOrder).reduce((a, b) => a > b ? a : b);
+      
+      final salaryWithSortOrder = salary.copyWith(sortOrder: maxSortOrder + 1);
+      await _dataSource.saveSalary(salaryWithSortOrder, profileId);
       await loadSalaries();
       return true;
     } catch (e) {
@@ -125,8 +130,48 @@ class SalaryProvider extends ChangeNotifier {
       final profileId = _currencyChoiceProvider.activeCurrencyChoice?.id ?? '';
       if (profileId.isEmpty) return;
       
-      for (final salary in _salaries) {
-        await _dataSource.saveSalary(salary, profileId);
+      for (int i = 0; i < _salaries.length; i++) {
+        final updatedSalary = _salaries[i].copyWith(sortOrder: i);
+        _salaries[i] = updatedSalary;
+        await _dataSource.saveSalary(updatedSalary, profileId);
+      }
+    } catch (e) {
+      _error = e.toString();
+      notifyListeners();
+    }
+  }
+
+  Future<void> reorderSpendings(String salaryId, int oldIndex, int newIndex) async {
+    final salaryIndex = _salaries.indexWhere((s) => s.id == salaryId);
+    if (salaryIndex == -1) return;
+
+    if (newIndex > oldIndex) {
+      newIndex -= 1;
+    }
+
+    final salary = _salaries[salaryIndex];
+    final spendings = List.from(salary.spendings)
+      ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
+    
+    if (oldIndex < 0 || oldIndex >= spendings.length) return;
+    if (newIndex < 0 || newIndex >= spendings.length) return;
+    if (oldIndex == newIndex) return;
+
+    final spending = spendings.removeAt(oldIndex);
+    spendings.insert(newIndex, spending);
+
+    final updatedSpendings = spendings.asMap().entries.map((entry) {
+      return entry.value.copyWith(sortOrder: entry.key);
+    }).toList();
+
+    final updatedSalary = salary.copyWith(spendings: List.from(updatedSpendings));
+    _salaries[salaryIndex] = updatedSalary;
+    notifyListeners();
+
+    try {
+      final profileId = _currencyChoiceProvider.activeCurrencyChoice?.id ?? '';
+      if (profileId.isNotEmpty) {
+        await _dataSource.saveSalary(updatedSalary, profileId);
       }
     } catch (e) {
       _error = e.toString();

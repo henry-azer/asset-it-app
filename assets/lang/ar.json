@@ -490,5 +490,15 @@
   "spending_notes": "ملاحظات",
   "enter_notes": "أدخل ملاحظات (اختياري)",
   "add_more": "إضافة المزيد",
-  "remove_spending": "إزالة المصروف"
+  "remove_spending": "إزالة المصروف",
+  "incomes": "الدخل",
+  "income_type": "نوع الدخل",
+  "income_amount": "مبلغ الدخل",
+  "add_income": "إضافة دخل",
+  "total_incomes": "إجمالي الدخل",
+  "enter_income_type": "أدخل نوع الدخل",
+  "enter_income_amount": "أدخل مبلغ الدخل",
+  "remove_income": "إزالة الدخل",
+  "salary_name": "اسم الراتب",
+  "enter_salary_name": "مثال: راتب فبراير، مكافأة..."
 }

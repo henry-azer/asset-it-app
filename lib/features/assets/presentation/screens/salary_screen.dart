@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:asset_it/config/localization/app_localization.dart';
 import 'package:asset_it/core/utils/app_strings.dart';
+import 'package:asset_it/data/entities/income.dart';
 import 'package:asset_it/data/entities/salary.dart';
 import 'package:asset_it/data/entities/spending.dart';
 import 'package:asset_it/features/assets/presentation/providers/salary_provider.dart';
@@ -19,8 +20,8 @@ class SalaryScreen extends StatefulWidget {
 
 class _SalaryScreenState extends State<SalaryScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _salaryController = TextEditingController();
-  final _notesController = TextEditingController();
+  final _nameController = TextEditingController();
+  final List<IncomeFormData> _incomes = [];
   final List<SpendingFormData> _spendings = [];
   bool _isLoading = false;
   bool _isFormValid = false;
@@ -30,15 +31,30 @@ class _SalaryScreenState extends State<SalaryScreen> {
   void initState() {
     super.initState();
     if (widget.salaryToEdit != null) {
-      _salaryController.text = widget.salaryToEdit!.amount.toString();
-      _notesController.text = widget.salaryToEdit!.notes;
+      _nameController.text = widget.salaryToEdit!.name;
+      final sortedIncomes = List.from(widget.salaryToEdit!.incomes)
+        ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
+      _incomes.addAll(
+        sortedIncomes.map(
+          (i) {
+            final income = IncomeFormData(
+              typeController: TextEditingController(text: i.type),
+              amountController: TextEditingController(text: i.amount.toString()),
+            );
+            income.typeController.addListener(_validateForm);
+            income.amountController.addListener(_validateForm);
+            return income;
+          },
+        ),
+      );
+      final sortedSpendings = List.from(widget.salaryToEdit!.spendings)
+        ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
       _spendings.addAll(
-        widget.salaryToEdit!.spendings.map(
+        sortedSpendings.map(
           (s) {
             final spending = SpendingFormData(
               typeController: TextEditingController(text: s.type),
               amountController: TextEditingController(text: s.amount.toString()),
-              notesController: TextEditingController(text: s.notes),
             );
             spending.typeController.addListener(_validateForm);
             spending.amountController.addListener(_validateForm);
@@ -48,12 +64,15 @@ class _SalaryScreenState extends State<SalaryScreen> {
       );
     }
 
+    if (_incomes.isEmpty) {
+      _addIncomeField();
+    }
+
     if (_spendings.isEmpty) {
       _addSpendingField();
     }
 
-    _salaryController.addListener(_validateForm);
-    _notesController.addListener(_validateForm);
+    _nameController.addListener(_validateForm);
     
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _validateForm();
@@ -62,19 +81,48 @@ class _SalaryScreenState extends State<SalaryScreen> {
 
   @override
   void dispose() {
-    _salaryController.dispose();
-    _notesController.dispose();
+    _nameController.dispose();
+    for (var income in _incomes) {
+      income.typeController.dispose();
+      income.amountController.dispose();
+    }
     for (var spending in _spendings) {
       spending.typeController.dispose();
       spending.amountController.dispose();
-      spending.notesController.dispose();
     }
     super.dispose();
   }
 
+  double get _totalIncomes {
+    return _incomes.fold(0.0, (sum, i) => sum + (double.tryParse(i.amountController.text) ?? 0.0));
+  }
+
+  double get _totalSpendings {
+    return _spendings.fold(0.0, (sum, s) => sum + (double.tryParse(s.amountController.text) ?? 0.0));
+  }
+
   void _validateForm() {
-    final salaryAmount = double.tryParse(_salaryController.text);
-    bool isValid = salaryAmount != null && salaryAmount > 0;
+    bool isValid = true;
+
+    bool hasAtLeastOneValidIncome = false;
+    for (var income in _incomes) {
+      final hasType = income.typeController.text.isNotEmpty;
+      final hasAmount = income.amountController.text.isNotEmpty;
+      final validAmount = double.tryParse(income.amountController.text) != null;
+
+      if (hasType && hasAmount && validAmount) {
+        hasAtLeastOneValidIncome = true;
+      } else if (hasType || hasAmount) {
+        if (!hasType || !hasAmount || !validAmount) {
+          isValid = false;
+          break;
+        }
+      }
+    }
+
+    if (!hasAtLeastOneValidIncome) {
+      isValid = false;
+    }
 
     for (var spending in _spendings) {
       final hasType = spending.typeController.text.isNotEmpty;
@@ -96,11 +144,35 @@ class _SalaryScreenState extends State<SalaryScreen> {
     }
   }
 
+  void _addIncomeField() {
+    final newIncome = IncomeFormData(
+      typeController: TextEditingController(),
+      amountController: TextEditingController(),
+    );
+    
+    newIncome.typeController.addListener(_validateForm);
+    newIncome.amountController.addListener(_validateForm);
+    
+    setState(() {
+      _incomes.add(newIncome);
+    });
+  }
+
+  void _removeIncomeField(int index) {
+    if (_incomes.length > 1) {
+      setState(() {
+        _incomes[index].typeController.dispose();
+        _incomes[index].amountController.dispose();
+        _incomes.removeAt(index);
+      });
+      _validateForm();
+    }
+  }
+
   void _addSpendingField() {
     final newSpending = SpendingFormData(
       typeController: TextEditingController(),
       amountController: TextEditingController(),
-      notesController: TextEditingController(),
     );
     
     newSpending.typeController.addListener(_validateForm);
@@ -116,9 +188,9 @@ class _SalaryScreenState extends State<SalaryScreen> {
       setState(() {
         _spendings[index].typeController.dispose();
         _spendings[index].amountController.dispose();
-        _spendings[index].notesController.dispose();
         _spendings.removeAt(index);
       });
+      _validateForm();
     }
   }
 
@@ -131,23 +203,41 @@ class _SalaryScreenState extends State<SalaryScreen> {
       _isLoading = true;
     });
 
-    final salaryAmount = double.tryParse(_salaryController.text) ?? 0.0;
-    final spendings = _spendings
-        .where((s) => s.typeController.text.isNotEmpty && s.amountController.text.isNotEmpty)
-        .map((s) => Spending(
+    final filteredIncomes = _incomes
+        .where((i) => i.typeController.text.isNotEmpty && i.amountController.text.isNotEmpty)
+        .toList();
+    final incomes = filteredIncomes
+        .asMap()
+        .entries
+        .map((entry) => Income(
               id: const Uuid().v4(),
-              type: s.typeController.text,
-              amount: double.tryParse(s.amountController.text) ?? 0.0,
-              notes: s.notesController.text,
+              type: entry.value.typeController.text,
+              amount: double.tryParse(entry.value.amountController.text) ?? 0.0,
+              sortOrder: entry.key,
+            ))
+        .toList();
+    final salaryAmount = incomes.fold(0.0, (sum, i) => sum + i.amount);
+    final filteredSpendings = _spendings
+        .where((s) => s.typeController.text.isNotEmpty && s.amountController.text.isNotEmpty)
+        .toList();
+    final spendings = filteredSpendings
+        .asMap()
+        .entries
+        .map((entry) => Spending(
+              id: const Uuid().v4(),
+              type: entry.value.typeController.text,
+              amount: double.tryParse(entry.value.amountController.text) ?? 0.0,
+              sortOrder: entry.key,
             ))
         .toList();
 
     final salary = Salary(
       id: widget.salaryToEdit?.id ?? const Uuid().v4(),
+      name: _nameController.text,
       amount: salaryAmount,
+      incomes: incomes,
       spendings: spendings,
       dateAdded: widget.salaryToEdit?.dateAdded ?? DateTime.now(),
-      notes: _notesController.text,
     );
 
     final provider = Provider.of<SalaryProvider>(context, listen: false);
@@ -275,11 +365,11 @@ class _SalaryScreenState extends State<SalaryScreen> {
                   child: ListView(
                     padding: const EdgeInsets.all(20),
                   children: [
-                    _buildSalaryAmountCard(isDark),
+                    _buildNameCard(isDark),
+                    const SizedBox(height: 16),
+                    _buildIncomesCard(isDark),
                     const SizedBox(height: 16),
                     _buildSpendingsCard(isDark),
-                    const SizedBox(height: 16),
-                    _buildNotesCard(isDark),
                     const SizedBox(height: 16),
                     _buildSummaryCard(isDark),
                     const SizedBox(height: 16),
@@ -296,7 +386,7 @@ class _SalaryScreenState extends State<SalaryScreen> {
     );
   }
 
-  Widget _buildSalaryAmountCard(bool isDark) {
+  Widget _buildIncomesCard(bool isDark) {
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
@@ -323,7 +413,7 @@ class _SalaryScreenState extends State<SalaryScreen> {
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
-                    colors: [Colors.blue.shade400, Colors.purple.shade400],
+                    colors: [Colors.green.shade400, Colors.teal.shade400],
                   ),
                   borderRadius: BorderRadius.circular(8),
                 ),
@@ -336,7 +426,7 @@ class _SalaryScreenState extends State<SalaryScreen> {
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
-                  AppStrings.salaryAmount.tr,
+                  AppStrings.incomes.tr,
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
@@ -344,11 +434,112 @@ class _SalaryScreenState extends State<SalaryScreen> {
                   ),
                 ),
               ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: Colors.green.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  _totalIncomes.toStringAsFixed(2),
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.green.shade400,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          ..._incomes.asMap().entries.map((entry) {
+            final index = entry.key;
+            final income = entry.value;
+            return _buildIncomeField(income, index, isDark);
+          }),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: _addIncomeField,
+              icon: const Icon(Icons.add),
+              label: Text(AppStrings.addMore.tr),
+              style: OutlinedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                side: BorderSide(
+                  color: isDark ? Colors.white.withOpacity(0.2) : Colors.grey.withOpacity(0.3),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildIncomeField(IncomeFormData income, int index, bool isDark) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF0F1329) : Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isDark ? Colors.white.withOpacity(0.05) : Colors.grey.withOpacity(0.1),
+        ),
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: TextFormField(
+                  controller: income.typeController,
+                  style: TextStyle(
+                    color: isDark ? Colors.white : Colors.grey.shade800,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  decoration: InputDecoration(
+                    hintText: AppStrings.enterIncomeType.tr,
+                    hintStyle: TextStyle(
+                      color: isDark ? Colors.white38 : Colors.grey.shade400,
+                    ),
+                    filled: true,
+                    fillColor: isDark ? const Color(0xFF1A1F3A) : Colors.white,
+                    counterText: '',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: BorderSide.none,
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: BorderSide(
+                        color: Colors.green.shade400,
+                        width: 2,
+                      ),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                  ),
+                  onChanged: (value) => _validateForm(),
+                ),
+              ),
+              if (_incomes.length > 1) ...[
+                const SizedBox(width: 8),
+                IconButton(
+                  onPressed: () => _removeIncomeField(index),
+                  icon: const Icon(Icons.remove_circle, color: Colors.grey),
+                  tooltip: AppStrings.removeIncome.tr,
+                ),
+              ],
             ],
           ),
           const SizedBox(height: 12),
           TextFormField(
-            controller: _salaryController,
+            controller: income.amountController,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
             inputFormatters: [
               FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}')),
@@ -359,51 +550,43 @@ class _SalaryScreenState extends State<SalaryScreen> {
               fontWeight: FontWeight.w500,
             ),
             decoration: InputDecoration(
-              hintText: AppStrings.enterSalaryAmount.tr,
+              hintText: AppStrings.enterIncomeAmount.tr,
               hintStyle: TextStyle(
                 color: isDark ? Colors.white38 : Colors.grey.shade400,
               ),
               filled: true,
-              fillColor: isDark ? const Color(0xFF0F1329) : Colors.grey.shade100,
+              fillColor: isDark ? const Color(0xFF1A1F3A) : Colors.white,
               counterText: '',
               border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(10),
                 borderSide: BorderSide.none,
               ),
               focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(10),
                 borderSide: BorderSide(
-                  color: Colors.blue.shade400,
+                  color: Colors.green.shade400,
                   width: 2,
                 ),
               ),
               errorBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(10),
                 borderSide: BorderSide(
                   color: Colors.red.shade400,
                   width: 1.5,
                 ),
               ),
               focusedErrorBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(10),
                 borderSide: BorderSide(
                   color: Colors.red.shade400,
                   width: 2,
                 ),
               ),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
             ),
-            validator: (value) {
-              if (value == null || value.isEmpty) {
-                return AppStrings.pleaseEnterSalaryAmount.tr;
-              }
-              if (double.tryParse(value) == null) {
-                return AppStrings.pleaseEnterValidNumber.tr;
-              }
-              return null;
-            },
             onChanged: (value) {
               _validateForm();
+              setState(() {});
             },
           ),
         ],
@@ -456,6 +639,21 @@ class _SalaryScreenState extends State<SalaryScreen> {
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
                     color: isDark ? Colors.white : Colors.grey.shade800,
+                  ),
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: Colors.red.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  _totalSpendings.toStringAsFixed(2),
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.red.shade400,
                   ),
                 ),
               ),
@@ -594,44 +792,17 @@ class _SalaryScreenState extends State<SalaryScreen> {
               ),
               contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
             ),
-            onChanged: (value) => _validateForm(),
-          ),
-          const SizedBox(height: 12),
-          TextFormField(
-            controller: spending.notesController,
-            style: TextStyle(
-              color: isDark ? Colors.white : Colors.grey.shade800,
-              fontSize: 15,
-              fontWeight: FontWeight.w500,
-            ),
-            decoration: InputDecoration(
-              hintText: AppStrings.enterNotes.tr,
-              hintStyle: TextStyle(
-                color: isDark ? Colors.white38 : Colors.grey.shade400,
-              ),
-              filled: true,
-              fillColor: isDark ? const Color(0xFF1A1F3A) : Colors.white,
-              counterText: '',
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-                borderSide: BorderSide.none,
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-                borderSide: BorderSide(
-                  color: Colors.blue.shade400,
-                  width: 2,
-                ),
-              ),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-            ),
+            onChanged: (value) {
+              _validateForm();
+              setState(() {});
+            },
           ),
         ],
       ),
     );
   }
 
-  Widget _buildNotesCard(bool isDark) {
+  Widget _buildNameCard(bool isDark) {
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
@@ -663,7 +834,7 @@ class _SalaryScreenState extends State<SalaryScreen> {
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: const Icon(
-                  Icons.notes,
+                  Icons.label_outline,
                   color: Colors.white,
                   size: 16,
                 ),
@@ -671,7 +842,7 @@ class _SalaryScreenState extends State<SalaryScreen> {
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
-                  AppStrings.notes.tr,
+                  AppStrings.salaryName.tr,
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
@@ -683,15 +854,14 @@ class _SalaryScreenState extends State<SalaryScreen> {
           ),
           const SizedBox(height: 12),
           TextFormField(
-            controller: _notesController,
-            maxLines: 3,
+            controller: _nameController,
             style: TextStyle(
               color: isDark ? Colors.white : Colors.grey.shade800,
               fontSize: 15,
               fontWeight: FontWeight.w500,
             ),
             decoration: InputDecoration(
-              hintText: AppStrings.enterNotes.tr,
+              hintText: AppStrings.enterSalaryName.tr,
               hintStyle: TextStyle(
                 color: isDark ? Colors.white38 : Colors.grey.shade400,
               ),
@@ -720,7 +890,7 @@ class _SalaryScreenState extends State<SalaryScreen> {
   Widget _buildSummaryCard(bool isDark) {
     return StatefulBuilder(
       builder: (context, setState) {
-        final salaryAmount = double.tryParse(_salaryController.text) ?? 0.0;
+        final salaryAmount = _totalIncomes;
         final totalSpendings = _spendings.fold<double>(
           0.0,
           (sum, s) => sum + (double.tryParse(s.amountController.text) ?? 0.0),
@@ -1057,14 +1227,22 @@ class _SalaryScreenState extends State<SalaryScreen> {
   }
 }
 
+class IncomeFormData {
+  final TextEditingController typeController;
+  final TextEditingController amountController;
+
+  IncomeFormData({
+    required this.typeController,
+    required this.amountController,
+  });
+}
+
 class SpendingFormData {
   final TextEditingController typeController;
   final TextEditingController amountController;
-  final TextEditingController notesController;
 
   SpendingFormData({
     required this.typeController,
     required this.amountController,
-    required this.notesController,
   });
 }

@@ -493,5 +493,15 @@ class AppStrings {
   static const String enterNotes = 'enter_notes';
   static const String addMore = 'add_more';
   static const String removeSpending = 'remove_spending';
+  static const String incomes = 'incomes';
+  static const String incomeType = 'income_type';
+  static const String incomeAmount = 'income_amount';
+  static const String addIncome = 'add_income';
+  static const String totalIncomes = 'total_incomes';
+  static const String enterIncomeType = 'enter_income_type';
+  static const String enterIncomeAmount = 'enter_income_amount';
+  static const String removeIncome = 'remove_income';
+  static const String salaryName = 'salary_name';
+  static const String enterSalaryName = 'enter_salary_name';
 
 }

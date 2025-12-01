@@ -109,10 +109,13 @@ class SQLiteDatabaseManager extends IDatabaseManager {
       '''CREATE TABLE ${AppLocalStorageKeys.salariesTable}(
         id TEXT PRIMARY KEY,
         profileId TEXT NOT NULL,
+        name TEXT,
         amount REAL NOT NULL,
+        incomes TEXT,
         spendings TEXT NOT NULL,
         dateAdded TEXT NOT NULL,
         notes TEXT,
+        sortOrder INTEGER DEFAULT 0,
         FOREIGN KEY (profileId) REFERENCES ${AppLocalStorageKeys.currencyChoicesTable}(id) ON DELETE CASCADE
       )''',
     );

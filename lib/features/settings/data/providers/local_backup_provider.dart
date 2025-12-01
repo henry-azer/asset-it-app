@@ -671,7 +671,14 @@ class LocalBackupProvider with ChangeNotifier {
         final salariesList = backupData['salaries'] as List<dynamic>? ?? [];
         if (salariesList.isNotEmpty) {
           for (var salaryMap in salariesList) {
-            await txn.insert('salaries', salaryMap as Map<String, dynamic>, conflictAlgorithm: ConflictAlgorithm.replace);
+            final map = Map<String, dynamic>.from(salaryMap as Map<String, dynamic>);
+            if (map['incomes'] != null && map['incomes'] is! String) {
+              map['incomes'] = jsonEncode(map['incomes']);
+            }
+            if (map['spendings'] != null && map['spendings'] is! String) {
+              map['spendings'] = jsonEncode(map['spendings']);
+            }
+            await txn.insert('salaries', map, conflictAlgorithm: ConflictAlgorithm.replace);
           }
         }
       });

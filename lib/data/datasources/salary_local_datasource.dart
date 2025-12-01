@@ -27,6 +27,9 @@ class SalaryLocalDataSourceImpl implements SalaryLocalDataSource {
     
     return results.map((map) {
       final modifiedMap = Map<String, dynamic>.from(map);
+      if (modifiedMap['incomes'] != null && modifiedMap['incomes'] is String) {
+        modifiedMap['incomes'] = json.decode(modifiedMap['incomes']);
+      }
       if (modifiedMap['spendings'] != null && modifiedMap['spendings'] is String) {
         modifiedMap['spendings'] = json.decode(modifiedMap['spendings']);
       }
@@ -46,6 +49,9 @@ class SalaryLocalDataSourceImpl implements SalaryLocalDataSource {
     if (results.isEmpty) return null;
     
     final map = Map<String, dynamic>.from(results.first);
+    if (map['incomes'] != null && map['incomes'] is String) {
+      map['incomes'] = json.decode(map['incomes']);
+    }
     if (map['spendings'] != null && map['spendings'] is String) {
       map['spendings'] = json.decode(map['spendings']);
     }
@@ -62,6 +68,9 @@ class SalaryLocalDataSourceImpl implements SalaryLocalDataSource {
     
     final map = salary.toMap();
     map['profileId'] = profileId;
+    if (map['incomes'] != null) {
+      map['incomes'] = json.encode(map['incomes']);
+    }
     if (map['spendings'] != null) {
       map['spendings'] = json.encode(map['spendings']);
     }

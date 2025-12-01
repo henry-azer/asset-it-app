@@ -1,11 +1,11 @@
-class Spending {
+class Income {
   final String id;
   final String type;
   final double amount;
   final String notes;
   final int sortOrder;
 
-  Spending({
+  Income({
     required this.id,
     required this.type,
     required this.amount,
@@ -23,8 +23,8 @@ class Spending {
     };
   }
 
-  factory Spending.fromMap(Map<String, dynamic> map) {
-    return Spending(
+  factory Income.fromMap(Map<String, dynamic> map) {
+    return Income(
       id: map['id'] as String,
       type: map['type'] as String,
       amount: (map['amount'] as num).toDouble(),
@@ -33,14 +33,14 @@ class Spending {
     );
   }
 
-  Spending copyWith({
+  Income copyWith({
     String? id,
     String? type,
     double? amount,
     String? notes,
     int? sortOrder,
   }) {
-    return Spending(
+    return Income(
       id: id ?? this.id,
       type: type ?? this.type,
       amount: amount ?? this.amount,
