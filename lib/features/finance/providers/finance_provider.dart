@@ -63,11 +63,14 @@ class FinanceProvider with ChangeNotifier {
       _finances =
           allFinances.where((f) => f.baseCurrency == baseCurrency).toList();
       _currencyFinances =
-          _finances.where((f) => f.type == FinanceType.currency).toList();
+          _finances.where((f) => f.type == FinanceType.currency).toList()
+            ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
       _goldFinances =
-          _finances.where((f) => f.type == FinanceType.gold).toList();
+          _finances.where((f) => f.type == FinanceType.gold).toList()
+            ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
       _stockFinances =
-          _finances.where((f) => f.type == FinanceType.stock).toList();
+          _finances.where((f) => f.type == FinanceType.stock).toList()
+            ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
       _isFinancesLoaded = true;
     } catch (e) {
       _error = '${AppStrings.failedToLoadFinances.tr}: $e';
@@ -80,7 +83,25 @@ class FinanceProvider with ChangeNotifier {
 
   Future<bool> addFinance(Finance finance) async {
     try {
-      await _datasource.insertFinance(finance);
+      List<Finance> sameTypeFinances;
+      switch (finance.type) {
+        case FinanceType.currency:
+          sameTypeFinances = _currencyFinances;
+          break;
+        case FinanceType.gold:
+          sameTypeFinances = _goldFinances;
+          break;
+        case FinanceType.stock:
+          sameTypeFinances = _stockFinances;
+          break;
+      }
+      
+      final maxSortOrder = sameTypeFinances.isEmpty
+          ? -1
+          : sameTypeFinances.map((f) => f.sortOrder).reduce((a, b) => a > b ? a : b);
+      
+      final financeWithSortOrder = finance.copyWith(sortOrder: maxSortOrder + 1);
+      await _datasource.insertFinance(financeWithSortOrder);
       await loadFinances();
       return true;
     } catch (e) {
@@ -293,6 +314,45 @@ class FinanceProvider with ChangeNotifier {
     } catch (e) {
       _error = '${AppStrings.failedToClearFinances.tr}: $e';
       notifyListeners();
+    }
+  }
+
+  Future<void> reorderFinances(FinanceType type, int oldIndex, int newIndex) async {
+    List<Finance> financeList;
+    switch (type) {
+      case FinanceType.currency:
+        financeList = _currencyFinances;
+        break;
+      case FinanceType.gold:
+        financeList = _goldFinances;
+        break;
+      case FinanceType.stock:
+        financeList = _stockFinances;
+        break;
+    }
+
+    if (newIndex > oldIndex) {
+      newIndex -= 1;
+    }
+
+    if (oldIndex < 0 || oldIndex >= financeList.length) return;
+    if (newIndex < 0 || newIndex >= financeList.length) return;
+    if (oldIndex == newIndex) return;
+
+    final finance = financeList.removeAt(oldIndex);
+    financeList.insert(newIndex, finance);
+    notifyListeners();
+
+    try {
+      for (int i = 0; i < financeList.length; i++) {
+        final updatedFinance = financeList[i].copyWith(sortOrder: i);
+        financeList[i] = updatedFinance;
+        await _datasource.updateFinance(updatedFinance);
+      }
+    } catch (e) {
+      _error = 'Failed to save reorder: $e';
+      notifyListeners();
+      await loadFinances();
     }
   }
 }

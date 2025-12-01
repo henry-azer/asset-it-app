@@ -91,6 +91,7 @@ class SQLiteDatabaseManager extends IDatabaseManager {
         baseCurrency TEXT,
         lastUpdated TEXT NOT NULL,
         metadata TEXT,
+        sortOrder INTEGER DEFAULT 0,
         UNIQUE(type, code)
       )''',
     );

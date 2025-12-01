@@ -578,20 +578,51 @@ class _FinanceManagerScreenState extends State<FinanceManagerScreen>
                     onRefresh: () async {
                       await provider.loadFinances();
                     },
-                    child: ListView(
+                    child: ReorderableListView.builder(
                       padding: const EdgeInsets.symmetric(
                           horizontal: 20, vertical: 8),
-                      physics: const AlwaysScrollableScrollPhysics(),
-                      children: [
-                        ...filteredCurrencies.map((finance) {
-                          return _buildFinanceCard(
+                      buildDefaultDragHandles: false,
+                      proxyDecorator: (child, index, animation) {
+                        return AnimatedBuilder(
+                          animation: animation,
+                          builder: (context, child) {
+                            final double elevation = Tween<double>(
+                              begin: 0,
+                              end: 8,
+                            ).evaluate(animation);
+                            return Material(
+                              elevation: elevation,
+                              color: Colors.transparent,
+                              shadowColor: Colors.black.withOpacity(0.3),
+                              borderRadius: BorderRadius.circular(16),
+                              child: child,
+                            );
+                          },
+                          child: child,
+                        );
+                      },
+                      itemCount: filteredCurrencies.length + 1,
+                      onReorder: (oldIndex, newIndex) {
+                        if (oldIndex < filteredCurrencies.length && newIndex <= filteredCurrencies.length) {
+                          provider.reorderFinances(FinanceType.currency, oldIndex, newIndex);
+                          HapticFeedback.mediumImpact();
+                        }
+                      },
+                      itemBuilder: (context, index) {
+                        if (index == filteredCurrencies.length) {
+                          return const SizedBox(key: ValueKey('spacer'), height: 80);
+                        }
+                        final finance = filteredCurrencies[index];
+                        return ReorderableDelayedDragStartListener(
+                          key: ValueKey(finance.id),
+                          index: index,
+                          child: _buildFinanceCard(
                             finance: finance,
                             provider: provider,
                             isDark: isDark,
-                          );
-                        }).toList(),
-                        const SizedBox(height: 80),
-                      ],
+                          ),
+                        );
+                      },
                     ),
                   ),
           ),
@@ -640,20 +671,51 @@ class _FinanceManagerScreenState extends State<FinanceManagerScreen>
                     onRefresh: () async {
                       await provider.loadFinances();
                     },
-                    child: ListView(
+                    child: ReorderableListView.builder(
                       padding: const EdgeInsets.symmetric(
                           horizontal: 20, vertical: 8),
-                      physics: const AlwaysScrollableScrollPhysics(),
-                      children: [
-                        ...filteredGold.map((finance) {
-                          return _buildFinanceCard(
+                      buildDefaultDragHandles: false,
+                      proxyDecorator: (child, index, animation) {
+                        return AnimatedBuilder(
+                          animation: animation,
+                          builder: (context, child) {
+                            final double elevation = Tween<double>(
+                              begin: 0,
+                              end: 8,
+                            ).evaluate(animation);
+                            return Material(
+                              elevation: elevation,
+                              color: Colors.transparent,
+                              shadowColor: Colors.black.withOpacity(0.3),
+                              borderRadius: BorderRadius.circular(16),
+                              child: child,
+                            );
+                          },
+                          child: child,
+                        );
+                      },
+                      itemCount: filteredGold.length + 1,
+                      onReorder: (oldIndex, newIndex) {
+                        if (oldIndex < filteredGold.length && newIndex <= filteredGold.length) {
+                          provider.reorderFinances(FinanceType.gold, oldIndex, newIndex);
+                          HapticFeedback.mediumImpact();
+                        }
+                      },
+                      itemBuilder: (context, index) {
+                        if (index == filteredGold.length) {
+                          return const SizedBox(key: ValueKey('spacer'), height: 80);
+                        }
+                        final finance = filteredGold[index];
+                        return ReorderableDelayedDragStartListener(
+                          key: ValueKey(finance.id),
+                          index: index,
+                          child: _buildFinanceCard(
                             finance: finance,
                             provider: provider,
                             isDark: isDark,
-                          );
-                        }).toList(),
-                        const SizedBox(height: 80),
-                      ],
+                          ),
+                        );
+                      },
                     ),
                   ),
           ),
@@ -702,20 +764,51 @@ class _FinanceManagerScreenState extends State<FinanceManagerScreen>
                     onRefresh: () async {
                       await provider.loadFinances();
                     },
-                    child: ListView(
+                    child: ReorderableListView.builder(
                       padding: const EdgeInsets.symmetric(
                           horizontal: 20, vertical: 8),
-                      physics: const AlwaysScrollableScrollPhysics(),
-                      children: [
-                        ...filteredStocks.map((finance) {
-                          return _buildFinanceCard(
+                      buildDefaultDragHandles: false,
+                      proxyDecorator: (child, index, animation) {
+                        return AnimatedBuilder(
+                          animation: animation,
+                          builder: (context, child) {
+                            final double elevation = Tween<double>(
+                              begin: 0,
+                              end: 8,
+                            ).evaluate(animation);
+                            return Material(
+                              elevation: elevation,
+                              color: Colors.transparent,
+                              shadowColor: Colors.black.withOpacity(0.3),
+                              borderRadius: BorderRadius.circular(16),
+                              child: child,
+                            );
+                          },
+                          child: child,
+                        );
+                      },
+                      itemCount: filteredStocks.length + 1,
+                      onReorder: (oldIndex, newIndex) {
+                        if (oldIndex < filteredStocks.length && newIndex <= filteredStocks.length) {
+                          provider.reorderFinances(FinanceType.stock, oldIndex, newIndex);
+                          HapticFeedback.mediumImpact();
+                        }
+                      },
+                      itemBuilder: (context, index) {
+                        if (index == filteredStocks.length) {
+                          return const SizedBox(key: ValueKey('spacer'), height: 80);
+                        }
+                        final finance = filteredStocks[index];
+                        return ReorderableDelayedDragStartListener(
+                          key: ValueKey(finance.id),
+                          index: index,
+                          child: _buildFinanceCard(
                             finance: finance,
                             provider: provider,
                             isDark: isDark,
-                          );
-                        }).toList(),
-                        const SizedBox(height: 80),
-                      ],
+                          ),
+                        );
+                      },
                     ),
                   ),
           ),
